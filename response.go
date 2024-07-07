@@ -39,6 +39,11 @@ func (r *Response) Error(err string, statusCode int) *Response {
 	return r
 }
 
+func (r *Response) Header(name string, value string) *Response {
+	r.w.Header().Set(name, value)
+	return r
+}
+
 func (r *Response) Send() {
 	r.w.WriteHeader(r.status)
 	r.w.Write(r.toWrite)

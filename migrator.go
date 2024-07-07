@@ -183,7 +183,7 @@ func getSqlFilenames(directory string) []string {
 		}
 		return nil
 	})
-	slices.SortFunc(sqlFiles, func(a, b string) int {
+	slices.SortFunc(sqlFiles, func(a string, b string) int {
 		fileNameA := a[strings.LastIndex(a, "/")+1:]
 		fileNameB := b[strings.LastIndex(b, "/")+1:]
 		return strings.Compare(fileNameA, fileNameB)

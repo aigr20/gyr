@@ -62,7 +62,7 @@ func NewMigrator(connection *sql.DB, settings ...SettingsFunc[MigratorSettings])
 	}
 
 	logLevel := slog.LevelInfo
-	if _, isSet := os.LookupEnv("GYR_DEBUG"); isSet {
+	if isGyrDebug() {
 		logLevel = slog.LevelDebug
 	}
 	logger := slog.New(slog.NewTextHandler(migratorSettings.LogWriter, &slog.HandlerOptions{Level: logLevel}))
@@ -141,7 +141,8 @@ func (mig *Migrator) executeMigrations(transaction *sql.Tx) error {
 	for _, path := range paths {
 		file, err := os.Open(path)
 		if err != nil {
-			return err
+			mig.logger.Warn("Failed to open a file", "path", path, "error", err)
+			continue
 		}
 		defer file.Close()
 
@@ -154,7 +155,8 @@ func (mig *Migrator) executeMigrations(transaction *sql.Tx) error {
 			query, readErr = fileReader.ReadString(';')
 			if readErr == nil {
 				query = strings.TrimSpace(query)
-				_, err = transaction.ExecContext(context.Background(), query)
+				mig.logger.Debug("Executing query", "query", query)
+				_, err = transaction.ExecContext(mig.Settings.Context, query)
 				if err != nil {
 					return err
 				}

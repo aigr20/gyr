@@ -1,7 +1,9 @@
 package gyr
 
 import (
+	"log/slog"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -10,20 +12,31 @@ import (
 type Router struct {
 	routes      []*Route
 	middlewares []func(*Context)
+	logger      *slog.Logger
 }
 
 func DefaultRouter() *Router {
+	var logLevel slog.Level
+	if isGyrDebug() {
+		logLevel = slog.LevelDebug
+	} else {
+		logLevel = slog.LevelInfo
+	}
 	return &Router{
 		routes:      make([]*Route, 0),
 		middlewares: make([]func(*Context), 0),
+		logger:      slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})),
 	}
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	router.logger.Info("Incoming request", "method", req.Method, "path", req.URL.Path)
+
 	context := CreateContext(w, req)
 	route := router.FindRoute(req.URL.Path)
 	if route == nil {
 		context.Response.Error("404 - Not Found", http.StatusNotFound).Send()
+		router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
 		return
 	}
 
@@ -40,6 +53,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			ok := runMiddlewares(middlewares, context)
 			if !ok {
 				context.Response.Send()
+				router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
 				return
 			}
 		}
@@ -48,9 +62,11 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if !context.Response.wasSent {
 			context.Response.Send()
 		}
+		router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
 		return
 	}
 	context.Response.Error("405 - Method Not Allowed", http.StatusMethodNotAllowed).Send()
+	router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
 }
 
 func (router *Router) Middleware(middleware ...func(*Context)) {

@@ -9,7 +9,7 @@ import (
 
 type Context struct {
 	Request       *http.Request
-	CustomDecoder *BodyDecoder
+	CustomDecoder BodyDecoder
 	Response      *Response
 	variables     map[string]any
 	aborted       bool
@@ -66,7 +66,7 @@ func (ctx *Context) ReadBody(destination any) error {
 		decoder = xml.NewDecoder(ctx.Request.Body)
 	default:
 		if ctx.CustomDecoder != nil {
-			decoder = *ctx.CustomDecoder
+			decoder = ctx.CustomDecoder
 		} else {
 			return errors.New("can not determine Decoder to use from Content-Type header")
 		}

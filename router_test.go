@@ -3,11 +3,12 @@ package gyr_test
 import (
 	"bytes"
 	"encoding/json"
-	"gyr"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"github.com/aigr20/gyr"
 )
 
 func sendRequest(router *gyr.Router, req *http.Request) *httptest.ResponseRecorder {

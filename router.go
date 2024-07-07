@@ -171,6 +171,18 @@ func (route *Route) Post(handler func(*Context)) *Route {
 	return route.method(http.MethodPost, handler)
 }
 
+func (route *Route) Put(handler func(*Context)) *Route {
+	return route.method(http.MethodPut, handler)
+}
+
+func (route *Route) Delete(handler func(*Context)) *Route {
+	return route.method(http.MethodDelete, handler)
+}
+
+func (route *Route) Patch(handler func(*Context)) *Route {
+	return route.method(http.MethodPatch, handler)
+}
+
 func (route *Route) Middleware(middleware ...func(*Context)) *Route {
 	route.middlewares = append(route.middlewares, middleware...)
 	return route

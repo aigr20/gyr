@@ -164,6 +164,50 @@ func TestFindRouteDoesNotFindPartialMatch(t *testing.T) {
 	}
 }
 
+func TestFindRouteInGroup(t *testing.T) {
+	router := defaultTestRouter()
+	group := router.Group("/group")
+	expected := group.Path("/test").Get(func(ctx *gyr.Context) {
+		ctx.Response.Text("Group routed!").Send()
+	})
+	found := router.FindRoute("/group/test")
+
+	if expected != found {
+		t.Logf("Found %+v\n", found)
+		t.FailNow()
+	}
+}
+
+func TestFindRouteInNestedGroup(t *testing.T) {
+	router := defaultTestRouter()
+	group := router.Group("/group").Group("/nested")
+	expected := group.Path("/test").Get(func(ctx *gyr.Context) {
+		ctx.Response.Text("Nested!").Send()
+	})
+	found := router.FindRoute("/group/nested/test")
+
+	if expected != found {
+		t.Logf("Found %+v\n", found)
+		t.FailNow()
+	}
+}
+
+func TestFindRoutePrefixMatchesGroupButRouteOutsideOfGroup(t *testing.T) {
+	router := defaultTestRouter()
+	router.Group("/account").Path("/delete").Delete(func(ctx *gyr.Context) {
+		ctx.Response.Text("Delete account").Send()
+	})
+	expected := router.Path("/account/create").Post(func(ctx *gyr.Context) {
+		ctx.Response.Text("Create account").Send()
+	})
+	found := router.FindRoute("/account/create")
+
+	if expected != found {
+		t.Logf("Found %+v\n", found)
+		t.FailNow()
+	}
+}
+
 func TestRouteWithIntPathVariable(t *testing.T) {
 	router := defaultTestRouter()
 	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) {

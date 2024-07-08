@@ -9,8 +9,12 @@ import (
 	"strings"
 )
 
+type RouterMatchable interface {
+	MatchesPath(string) bool
+}
+
 type Router struct {
-	routes      []*Route
+	routes      []RouterMatchable
 	middlewares []func(*Context)
 	logger      *slog.Logger
 }
@@ -23,7 +27,7 @@ func DefaultRouter() *Router {
 		logLevel = slog.LevelInfo
 	}
 	return &Router{
-		routes:      make([]*Route, 0),
+		routes:      make([]RouterMatchable, 0),
 		middlewares: make([]func(*Context), 0),
 		logger:      slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})),
 	}
@@ -79,16 +83,14 @@ func (router *Router) Path(path string) *Route {
 	return route
 }
 
-func (router *Router) FindRoute(path string) *Route {
-	var route *Route = nil
-	for _, potentialRoute := range router.routes {
-		if potentialRoute.pattern.MatchString(path) {
-			route = potentialRoute
-			break
-		}
-	}
+func (router *Router) Group(prefix string) *RouteGroup {
+	group := createGroup(prefix)
+	router.routes = append(router.routes, group)
+	return group
+}
 
-	return route
+func (router *Router) FindRoute(path string) *Route {
+	return searchRoute(router.routes, path)
 }
 
 func extractVariablesIntoContext(route *Route, ctx *Context) {
@@ -135,6 +137,10 @@ func createRoute(path string) *Route {
 	}
 	createPathRegex(route)
 	return route
+}
+
+func (route *Route) MatchesPath(path string) bool {
+	return route.pattern.MatchString(path)
 }
 
 func createPathRegex(route *Route) {
@@ -190,6 +196,68 @@ func (route *Route) Middleware(middleware ...func(*Context)) *Route {
 
 func (route *Route) method(method string, handler func(*Context)) *Route {
 	route.handlers[method] = handler
+	return route
+}
+
+type RouteGroup struct {
+	Prefix      string
+	middlewares []func(*Context)
+	routes      []RouterMatchable
+}
+
+func createGroup(prefix string) *RouteGroup {
+	return &RouteGroup{
+		Prefix:      prefix,
+		routes:      make([]RouterMatchable, 0),
+		middlewares: make([]func(*Context), 0),
+	}
+}
+
+func (group *RouteGroup) MatchesPath(path string) bool {
+	// Should use Regex if we want groups to be able to contain path variables
+	return strings.HasPrefix(path, group.Prefix)
+}
+
+func (group *RouteGroup) Path(path string) *Route {
+	route := createRoute(path)
+	route.middlewares = append(route.middlewares, group.middlewares...)
+	group.routes = append(group.routes, route)
+	return route
+}
+
+func (group *RouteGroup) Group(prefix string) *RouteGroup {
+	nestedGroup := createGroup(prefix)
+	group.routes = append(group.routes, nestedGroup)
+	return nestedGroup
+}
+
+// Must be called before any routes are added to the group or the routes added before the call won't have the middlewares.
+func (group *RouteGroup) Middleware(middleware ...func(*Context)) *RouteGroup {
+	group.middlewares = append(group.middlewares, middleware...)
+	return group
+}
+
+func (group *RouteGroup) findInGroup(path string) *Route {
+	return searchRoute(group.routes, path)
+}
+
+func searchRoute(haystack []RouterMatchable, path string) *Route {
+	var route *Route = nil
+	for _, routeOrGroup := range haystack {
+		if routeOrGroup.MatchesPath(path) {
+			switch routeOrGroup := routeOrGroup.(type) {
+			case *Route:
+				route = routeOrGroup
+			case *RouteGroup:
+				strippedPath := strings.TrimPrefix(path, routeOrGroup.Prefix)
+				route = routeOrGroup.findInGroup(strippedPath)
+				if route == nil {
+					continue
+				}
+			}
+			break
+		}
+	}
 	return route
 }
 

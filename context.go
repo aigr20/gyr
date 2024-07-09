@@ -8,10 +8,10 @@ import (
 )
 
 type Context struct {
-	Request       *http.Request
-	CustomDecoder BodyDecoder
-	writer        http.ResponseWriter
-	variables     map[string]any
+	Request         *http.Request
+	FallbackDecoder BodyDecoder
+	writer          http.ResponseWriter
+	variables       map[string]any
 }
 
 type BodyDecoder interface {
@@ -63,12 +63,11 @@ func (ctx *Context) ReadBody(destination any) error {
 	case "text/xml":
 		decoder = xml.NewDecoder(ctx.Request.Body)
 	default:
-		if ctx.CustomDecoder != nil {
-			decoder = ctx.CustomDecoder
+		if ctx.FallbackDecoder != nil {
+			decoder = ctx.FallbackDecoder
 		} else {
 			return errors.New("can not determine Decoder to use from Content-Type header")
 		}
 	}
-	defer ctx.Request.Body.Close()
 	return decoder.Decode(destination)
 }

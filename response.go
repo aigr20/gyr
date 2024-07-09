@@ -9,7 +9,14 @@ type Response struct {
 	w       http.ResponseWriter
 	status  int
 	toWrite []byte
-	wasSent bool
+}
+
+func NewResponse(ctx *Context) *Response {
+	return &Response{
+		w:       ctx.writer,
+		status:  http.StatusOK,
+		toWrite: make([]byte, 0),
+	}
 }
 
 func (r *Response) Status(statusCode int) *Response {
@@ -44,8 +51,7 @@ func (r *Response) Header(name string, value string) *Response {
 	return r
 }
 
-func (r *Response) Send() {
+func (r *Response) send() {
 	r.w.WriteHeader(r.status)
 	r.w.Write(r.toWrite)
-	r.wasSent = true
 }

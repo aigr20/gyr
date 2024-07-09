@@ -13,9 +13,11 @@ type RouterMatchable interface {
 	MatchesPath(string) bool
 }
 
+type GyrHandler func(*Context) *Response
+
 type Router struct {
 	routes      []RouterMatchable
-	middlewares []func(*Context)
+	middlewares []GyrHandler
 	logger      *slog.Logger
 }
 
@@ -28,7 +30,7 @@ func DefaultRouter() *Router {
 	}
 	return &Router{
 		routes:      make([]RouterMatchable, 0),
-		middlewares: make([]func(*Context), 0),
+		middlewares: make([]GyrHandler, 0),
 		logger:      slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})),
 	}
 }
@@ -38,9 +40,15 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	context := CreateContext(w, req)
 	route := router.FindRoute(req.URL.Path)
+
+	var response *Response
+	defer func() {
+		response.send()
+		router.logger.Info("Response sent", "status", response.status, "length", len(response.toWrite))
+	}()
+
 	if route == nil {
-		context.Response.Error("404 - Not Found", http.StatusNotFound).Send()
-		router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
+		response = context.Response().Error("404 - Not Found", http.StatusNotFound)
 		return
 	}
 
@@ -50,30 +58,27 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if len(route.middlewares) > 0 || len(router.middlewares) > 0 {
-			middlewares := make([]func(*Context), len(router.middlewares), len(router.middlewares)+len(route.middlewares))
+			middlewares := make([]GyrHandler, len(router.middlewares), len(router.middlewares)+len(route.middlewares))
 			copy(middlewares, router.middlewares)
 			middlewares = append(middlewares, route.middlewares...)
 
-			ok := runMiddlewares(middlewares, context)
-			if !ok {
-				context.Response.Send()
-				router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
+			response = runMiddlewares(middlewares, context)
+			if response != nil {
 				return
 			}
 		}
 
-		handler(context)
-		if !context.Response.wasSent {
-			context.Response.Send()
+		response = handler(context)
+		if response == nil {
+			router.logger.Warn("Handler returned no response, creating a default response", "path", req.URL.Path)
+			response = NewResponse(context)
 		}
-		router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
 		return
 	}
-	context.Response.Error("405 - Method Not Allowed", http.StatusMethodNotAllowed).Send()
-	router.logger.Info("Response sent", "method", req.Method, "path", req.URL.Path, "status", context.Response.status)
+	response = context.Response().Error("405 - Method Not Allowed", http.StatusMethodNotAllowed)
 }
 
-func (router *Router) Middleware(middleware ...func(*Context)) {
+func (router *Router) Middleware(middleware ...GyrHandler) {
 	router.middlewares = append(router.middlewares, middleware...)
 }
 
@@ -123,16 +128,16 @@ func extractVariablesIntoContext(route *Route, ctx *Context) {
 type Route struct {
 	Path        string
 	pattern     *regexp.Regexp
-	handlers    map[string]func(*Context)
-	middlewares []func(*Context)
+	handlers    map[string]GyrHandler
+	middlewares []GyrHandler
 	variables   map[string]int
 }
 
 func createRoute(path string) *Route {
 	route := &Route{
 		Path:        path,
-		handlers:    make(map[string]func(*Context)),
-		middlewares: make([]func(*Context), 0),
+		handlers:    make(map[string]GyrHandler),
+		middlewares: make([]GyrHandler, 0),
 		variables:   make(map[string]int),
 	}
 	createPathRegex(route)
@@ -169,39 +174,39 @@ func createPathRegex(route *Route) {
 	route.pattern = pathPattern
 }
 
-func (route *Route) Get(handler func(*Context)) *Route {
+func (route *Route) Get(handler GyrHandler) *Route {
 	return route.method(http.MethodGet, handler)
 }
 
-func (route *Route) Post(handler func(*Context)) *Route {
+func (route *Route) Post(handler GyrHandler) *Route {
 	return route.method(http.MethodPost, handler)
 }
 
-func (route *Route) Put(handler func(*Context)) *Route {
+func (route *Route) Put(handler GyrHandler) *Route {
 	return route.method(http.MethodPut, handler)
 }
 
-func (route *Route) Delete(handler func(*Context)) *Route {
+func (route *Route) Delete(handler GyrHandler) *Route {
 	return route.method(http.MethodDelete, handler)
 }
 
-func (route *Route) Patch(handler func(*Context)) *Route {
+func (route *Route) Patch(handler GyrHandler) *Route {
 	return route.method(http.MethodPatch, handler)
 }
 
-func (route *Route) Middleware(middleware ...func(*Context)) *Route {
+func (route *Route) Middleware(middleware ...GyrHandler) *Route {
 	route.middlewares = append(route.middlewares, middleware...)
 	return route
 }
 
-func (route *Route) method(method string, handler func(*Context)) *Route {
+func (route *Route) method(method string, handler GyrHandler) *Route {
 	route.handlers[method] = handler
 	return route
 }
 
 type RouteGroup struct {
 	Prefix      string
-	middlewares []func(*Context)
+	middlewares []GyrHandler
 	routes      []RouterMatchable
 }
 
@@ -209,7 +214,7 @@ func createGroup(prefix string) *RouteGroup {
 	return &RouteGroup{
 		Prefix:      prefix,
 		routes:      make([]RouterMatchable, 0),
-		middlewares: make([]func(*Context), 0),
+		middlewares: make([]GyrHandler, 0),
 	}
 }
 
@@ -232,7 +237,7 @@ func (group *RouteGroup) Group(prefix string) *RouteGroup {
 }
 
 // Must be called before any routes are added to the group or the routes added before the call won't have the middlewares.
-func (group *RouteGroup) Middleware(middleware ...func(*Context)) *RouteGroup {
+func (group *RouteGroup) Middleware(middleware ...GyrHandler) *RouteGroup {
 	group.middlewares = append(group.middlewares, middleware...)
 	return group
 }
@@ -261,17 +266,14 @@ func searchRoute(haystack []RouterMatchable, path string) *Route {
 	return route
 }
 
-func runMiddlewares(middlewares []func(*Context), ctx *Context) bool {
-	if ctx.aborted {
-		return false
-	}
-
+// Non-nil return value means execution should halt and response be sent.
+func runMiddlewares(middlewares []GyrHandler, ctx *Context) *Response {
 	for _, middleware := range middlewares {
-		middleware(ctx)
-		if ctx.aborted {
-			return false
+		response := middleware(ctx)
+		if response != nil {
+			return response
 		}
 	}
 
-	return true
+	return nil
 }

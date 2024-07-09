@@ -27,8 +27,8 @@ func createPayload(object any) *bytes.Reader {
 
 func defaultTestRouter() *gyr.Router {
 	router := gyr.DefaultRouter()
-	router.Path("/test").Get(func(ctx *gyr.Context) {
-		ctx.Response.Text("Routed")
+	router.Path("/test").Get(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Text("Routed")
 	})
 
 	return router
@@ -95,8 +95,9 @@ func TestRoutingNotFound(t *testing.T) {
 func TestGlobalMiddleware(t *testing.T) {
 	router := defaultTestRouter()
 	x := 0
-	router.Middleware(func(ctx *gyr.Context) {
+	router.Middleware(func(ctx *gyr.Context) *gyr.Response {
 		x += 1
+		return nil
 	})
 	request, _ := http.NewRequest(http.MethodGet, "/test", nil)
 	sendRequest(router, request)
@@ -109,10 +110,11 @@ func TestGlobalMiddleware(t *testing.T) {
 func TestRouteMiddleware(t *testing.T) {
 	router := defaultTestRouter()
 	x := 0
-	router.Path("/middleware-path").Get(func(ctx *gyr.Context) {
-		ctx.Response.Text(strconv.Itoa(x))
-	}).Middleware(func(ctx *gyr.Context) {
+	router.Path("/middleware-path").Get(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Text(strconv.Itoa(x))
+	}).Middleware(func(ctx *gyr.Context) *gyr.Response {
 		x += 1
+		return nil
 	})
 
 	request, _ := http.NewRequest(http.MethodGet, "/middleware-path", nil)
@@ -125,8 +127,8 @@ func TestRouteMiddleware(t *testing.T) {
 
 func TestFindRootRoute(t *testing.T) {
 	router := defaultTestRouter()
-	expected := router.Path("/").Get(func(ctx *gyr.Context) {
-		ctx.Response.Text("I'm the root")
+	expected := router.Path("/").Get(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Text("I'm the root")
 	})
 	found := router.FindRoute("/")
 
@@ -167,8 +169,8 @@ func TestFindRouteDoesNotFindPartialMatch(t *testing.T) {
 func TestFindRouteInGroup(t *testing.T) {
 	router := defaultTestRouter()
 	group := router.Group("/group")
-	expected := group.Path("/test").Get(func(ctx *gyr.Context) {
-		ctx.Response.Text("Group routed!").Send()
+	expected := group.Path("/test").Get(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Text("Group routed!")
 	})
 	found := router.FindRoute("/group/test")
 
@@ -181,8 +183,8 @@ func TestFindRouteInGroup(t *testing.T) {
 func TestFindRouteInNestedGroup(t *testing.T) {
 	router := defaultTestRouter()
 	group := router.Group("/group").Group("/nested")
-	expected := group.Path("/test").Get(func(ctx *gyr.Context) {
-		ctx.Response.Text("Nested!").Send()
+	expected := group.Path("/test").Get(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Text("Nested!")
 	})
 	found := router.FindRoute("/group/nested/test")
 
@@ -194,11 +196,11 @@ func TestFindRouteInNestedGroup(t *testing.T) {
 
 func TestFindRoutePrefixMatchesGroupButRouteOutsideOfGroup(t *testing.T) {
 	router := defaultTestRouter()
-	router.Group("/account").Path("/delete").Delete(func(ctx *gyr.Context) {
-		ctx.Response.Text("Delete account").Send()
+	router.Group("/account").Path("/delete").Delete(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Text("Delete account")
 	})
-	expected := router.Path("/account/create").Post(func(ctx *gyr.Context) {
-		ctx.Response.Text("Create account").Send()
+	expected := router.Path("/account/create").Post(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Text("Create account")
 	})
 	found := router.FindRoute("/account/create")
 
@@ -210,9 +212,9 @@ func TestFindRoutePrefixMatchesGroupButRouteOutsideOfGroup(t *testing.T) {
 
 func TestRouteWithIntPathVariable(t *testing.T) {
 	router := defaultTestRouter()
-	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) {
+	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) *gyr.Response {
 		v := ctx.IntVariable("v")
-		ctx.Response.Text(strconv.Itoa(v))
+		return ctx.Response().Text(strconv.Itoa(v))
 	})
 
 	request, _ := http.NewRequest(http.MethodGet, "/with-var/10", nil)
@@ -225,9 +227,9 @@ func TestRouteWithIntPathVariable(t *testing.T) {
 
 func TestRouteWithStringPathVariable(t *testing.T) {
 	router := defaultTestRouter()
-	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) {
+	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) *gyr.Response {
 		v := ctx.StringVariable("v")
-		ctx.Response.Text(v)
+		return ctx.Response().Text(v)
 	})
 
 	request, _ := http.NewRequest(http.MethodGet, "/with-var/10-re-nm", nil)
@@ -240,9 +242,9 @@ func TestRouteWithStringPathVariable(t *testing.T) {
 
 func TestRouteWithFloatPathVariable(t *testing.T) {
 	router := defaultTestRouter()
-	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) {
+	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) *gyr.Response {
 		v := ctx.FloatVariable("v")
-		ctx.Response.Text(strconv.FormatFloat(v, 'f', -1, 64))
+		return ctx.Response().Text(strconv.FormatFloat(v, 'f', -1, 64))
 	})
 
 	request, _ := http.NewRequest(http.MethodGet, "/with-var/10.3", nil)
@@ -255,9 +257,9 @@ func TestRouteWithFloatPathVariable(t *testing.T) {
 
 func TestRouteWithBoolPathVariable(t *testing.T) {
 	router := defaultTestRouter()
-	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) {
+	router.Path("/with-var/:v").Get(func(ctx *gyr.Context) *gyr.Response {
 		v := ctx.BoolVariable("v")
-		ctx.Response.Text(strconv.FormatBool(v))
+		return ctx.Response().Text(strconv.FormatBool(v))
 	})
 
 	request, _ := http.NewRequest(http.MethodGet, "/with-var/false", nil)
@@ -275,17 +277,16 @@ type point struct {
 
 func TestSendJson(t *testing.T) {
 	router := defaultTestRouter()
-	router.Path("/json").Post(func(ctx *gyr.Context) {
+	router.Path("/json").Post(func(ctx *gyr.Context) *gyr.Response {
 		var p point
 		err := ctx.ReadBody(&p)
 		if err != nil {
-			ctx.Response.Error("Failed reading JSON", http.StatusInternalServerError)
-			return
+			return ctx.Response().Error("Failed reading JSON", http.StatusInternalServerError)
 		}
 
 		p.X += 1
 		p.Y += 2
-		ctx.Response.Json(p)
+		return ctx.Response().Json(p)
 	})
 
 	payload := createPayload(point{X: 0, Y: 0})
@@ -320,15 +321,14 @@ func TestSendJson(t *testing.T) {
 
 func TestReceiveJson(t *testing.T) {
 	router := defaultTestRouter()
-	router.Path("/json").Post(func(ctx *gyr.Context) {
+	router.Path("/json").Post(func(ctx *gyr.Context) *gyr.Response {
 		var p point
 		err := ctx.ReadBody(&p)
 		if err != nil {
-			ctx.Response.Error("Failed reading JSON", http.StatusInternalServerError)
-			return
+			return ctx.Response().Error("Failed reading JSON", http.StatusInternalServerError)
 		}
 
-		ctx.Response.Text("Success!")
+		return ctx.Response().Text("Success!")
 	})
 
 	payload := createPayload(point{X: 1, Y: 3})
@@ -343,8 +343,8 @@ func TestReceiveJson(t *testing.T) {
 
 func TestResponseStatusCode(t *testing.T) {
 	router := defaultTestRouter()
-	router.Path("/code").Get(func(ctx *gyr.Context) {
-		ctx.Response.Status(http.StatusCreated).Json(point{})
+	router.Path("/code").Get(func(ctx *gyr.Context) *gyr.Response {
+		return ctx.Response().Status(http.StatusCreated).Json(point{})
 	})
 
 	request, _ := http.NewRequest(http.MethodGet, "/code", nil)

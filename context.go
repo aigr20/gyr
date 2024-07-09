@@ -10,9 +10,8 @@ import (
 type Context struct {
 	Request       *http.Request
 	CustomDecoder BodyDecoder
-	Response      *Response
+	writer        http.ResponseWriter
 	variables     map[string]any
-	aborted       bool
 }
 
 type BodyDecoder interface {
@@ -22,14 +21,13 @@ type BodyDecoder interface {
 func CreateContext(w http.ResponseWriter, req *http.Request) *Context {
 	return &Context{
 		Request:   req,
+		writer:    w,
 		variables: make(map[string]any),
-		Response: &Response{
-			w:       w,
-			status:  http.StatusOK,
-			toWrite: make([]byte, 0),
-			wasSent: false,
-		},
 	}
+}
+
+func (ctx *Context) Response() *Response {
+	return NewResponse(ctx)
 }
 
 func (ctx *Context) SetVariable(key string, value any) {
@@ -73,8 +71,4 @@ func (ctx *Context) ReadBody(destination any) error {
 	}
 	defer ctx.Request.Body.Close()
 	return decoder.Decode(destination)
-}
-
-func (ctx *Context) Abort() {
-	ctx.aborted = true
 }

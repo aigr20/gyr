@@ -13,11 +13,11 @@ type RouterMatchable interface {
 	MatchesPath(string) bool
 }
 
-type GyrHandler func(*Context) *Response
+type Handler func(*Context) *Response
 
 type Router struct {
 	routes      []RouterMatchable
-	middlewares []GyrHandler
+	middlewares []Handler
 	logger      *slog.Logger
 }
 
@@ -30,7 +30,7 @@ func DefaultRouter() *Router {
 	}
 	return &Router{
 		routes:      make([]RouterMatchable, 0),
-		middlewares: make([]GyrHandler, 0),
+		middlewares: make([]Handler, 0),
 		logger:      slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})),
 	}
 }
@@ -58,7 +58,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if len(route.middlewares) > 0 || len(router.middlewares) > 0 {
-			middlewares := make([]GyrHandler, len(router.middlewares), len(router.middlewares)+len(route.middlewares))
+			middlewares := make([]Handler, len(router.middlewares), len(router.middlewares)+len(route.middlewares))
 			copy(middlewares, router.middlewares)
 			middlewares = append(middlewares, route.middlewares...)
 
@@ -78,7 +78,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	response = context.Response().Error("405 - Method Not Allowed", http.StatusMethodNotAllowed)
 }
 
-func (router *Router) Middleware(middleware ...GyrHandler) {
+func (router *Router) Middleware(middleware ...Handler) {
 	router.middlewares = append(router.middlewares, middleware...)
 }
 
@@ -128,16 +128,16 @@ func extractVariablesIntoContext(route *Route, ctx *Context) {
 type Route struct {
 	Path        string
 	pattern     *regexp.Regexp
-	handlers    map[string]GyrHandler
-	middlewares []GyrHandler
+	handlers    map[string]Handler
+	middlewares []Handler
 	variables   map[string]int
 }
 
 func createRoute(path string) *Route {
 	route := &Route{
 		Path:        path,
-		handlers:    make(map[string]GyrHandler),
-		middlewares: make([]GyrHandler, 0),
+		handlers:    make(map[string]Handler),
+		middlewares: make([]Handler, 0),
 		variables:   make(map[string]int),
 	}
 	createPathRegex(route)
@@ -174,39 +174,39 @@ func createPathRegex(route *Route) {
 	route.pattern = pathPattern
 }
 
-func (route *Route) Get(handler GyrHandler) *Route {
+func (route *Route) Get(handler Handler) *Route {
 	return route.method(http.MethodGet, handler)
 }
 
-func (route *Route) Post(handler GyrHandler) *Route {
+func (route *Route) Post(handler Handler) *Route {
 	return route.method(http.MethodPost, handler)
 }
 
-func (route *Route) Put(handler GyrHandler) *Route {
+func (route *Route) Put(handler Handler) *Route {
 	return route.method(http.MethodPut, handler)
 }
 
-func (route *Route) Delete(handler GyrHandler) *Route {
+func (route *Route) Delete(handler Handler) *Route {
 	return route.method(http.MethodDelete, handler)
 }
 
-func (route *Route) Patch(handler GyrHandler) *Route {
+func (route *Route) Patch(handler Handler) *Route {
 	return route.method(http.MethodPatch, handler)
 }
 
-func (route *Route) Middleware(middleware ...GyrHandler) *Route {
+func (route *Route) Middleware(middleware ...Handler) *Route {
 	route.middlewares = append(route.middlewares, middleware...)
 	return route
 }
 
-func (route *Route) method(method string, handler GyrHandler) *Route {
+func (route *Route) method(method string, handler Handler) *Route {
 	route.handlers[method] = handler
 	return route
 }
 
 type RouteGroup struct {
 	Prefix      string
-	middlewares []GyrHandler
+	middlewares []Handler
 	routes      []RouterMatchable
 }
 
@@ -214,7 +214,7 @@ func createGroup(prefix string) *RouteGroup {
 	return &RouteGroup{
 		Prefix:      prefix,
 		routes:      make([]RouterMatchable, 0),
-		middlewares: make([]GyrHandler, 0),
+		middlewares: make([]Handler, 0),
 	}
 }
 
@@ -237,7 +237,7 @@ func (group *RouteGroup) Group(prefix string) *RouteGroup {
 }
 
 // Must be called before any routes are added to the group or the routes added before the call won't have the middlewares.
-func (group *RouteGroup) Middleware(middleware ...GyrHandler) *RouteGroup {
+func (group *RouteGroup) Middleware(middleware ...Handler) *RouteGroup {
 	group.middlewares = append(group.middlewares, middleware...)
 	return group
 }
@@ -267,7 +267,7 @@ func searchRoute(haystack []RouterMatchable, path string) *Route {
 }
 
 // Non-nil return value means execution should halt and response be sent.
-func runMiddlewares(middlewares []GyrHandler, ctx *Context) *Response {
+func runMiddlewares(middlewares []Handler, ctx *Context) *Response {
 	for _, middleware := range middlewares {
 		response := middleware(ctx)
 		if response != nil {

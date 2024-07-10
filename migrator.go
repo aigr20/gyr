@@ -139,32 +139,40 @@ func (mig *Migrator) executeMigrations(transaction *sql.Tx) error {
 	mig.logger.Info("Running migrations", "migrations", len(paths))
 
 	for _, path := range paths {
-		file, err := os.Open(path)
+		err := mig.executeQueriesInFile(path, transaction)
 		if err != nil {
-			mig.logger.Warn("Failed to open a file", "path", path, "error", err)
-			continue
-		}
-		defer file.Close()
-
-		mig.logger.Info("Running SQL script", "file", path)
-
-		fileReader := bufio.NewReader(file)
-		var query string
-		var readErr error = nil
-		for !errors.Is(readErr, io.EOF) {
-			query, readErr = fileReader.ReadString(';')
-			if readErr == nil {
-				query = strings.TrimSpace(query)
-				mig.logger.Debug("Executing query", "query", query)
-				_, err = transaction.ExecContext(mig.Settings.Context, query)
-				if err != nil {
-					return err
-				}
-			}
+			return err
 		}
 
 		mig.path = path
 		mig.version = migrationVersionFromFilepath(path)
+	}
+	return nil
+}
+
+func (mig *Migrator) executeQueriesInFile(path string, transaction *sql.Tx) error {
+	file, err := os.Open(path)
+	if err != nil {
+		mig.logger.Warn("Failed to open a file", "path", path, "error", err)
+		return err
+	}
+	defer file.Close()
+
+	mig.logger.Info("Running SQL script", "file", path)
+
+	fileReader := bufio.NewReader(file)
+	var query string
+	var readErr error = nil
+	for !errors.Is(readErr, io.EOF) {
+		query, readErr = fileReader.ReadString(';')
+		if readErr == nil {
+			query = strings.TrimSpace(query)
+			mig.logger.Debug("Executing query", "query", query)
+			_, err = transaction.ExecContext(mig.Settings.Context, query)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

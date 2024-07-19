@@ -31,19 +31,23 @@ func LoadEnvironment() error {
 			return err
 		}
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "#") || len(line) == 0 || !lineMatcher.MatchString(line) {
+		if shouldSkipLine(line) {
 			continue
 		}
 		matches := regexNamedMatches(lineMatcher, line)
-		if len(matches) != 2 {
-			continue
-		}
-		if _, isSet := os.LookupEnv(matches["name"]); isSet {
+		if _, isSet := os.LookupEnv(matches["name"]); isSet || len(matches) != 2 {
 			continue
 		}
 		os.Setenv(matches["name"], matches["value"])
 	}
 	return nil
+}
+
+func shouldSkipLine(line string) bool {
+	if strings.HasPrefix(line, "#") || len(line) == 0 || !lineMatcher.MatchString(line) {
+		return true
+	}
+	return false
 }
 
 // Get the named matches from a regexp.

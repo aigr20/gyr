@@ -27,3 +27,17 @@ func TestLoadEnvironment(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+func TestLoadEnvironmentDoesNotOverwrite(t *testing.T) {
+	gyr.EnvFile = "env_test_file"
+	os.Setenv("VAR", "exist")
+	err := gyr.LoadEnvironment()
+	if err != nil {
+		t.Log(err)
+		t.FailNow()
+	}
+	if v := os.Getenv("VAR"); v != "exist" {
+		t.Logf("Expected VAR to be 'exist' but received '%s'\n", v)
+		t.FailNow()
+	}
+}

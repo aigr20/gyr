@@ -38,6 +38,9 @@ func LoadEnvironment() error {
 		if len(matches) != 2 {
 			continue
 		}
+		if _, isSet := os.LookupEnv(matches["name"]); isSet {
+			continue
+		}
 		os.Setenv(matches["name"], matches["value"])
 	}
 	return nil

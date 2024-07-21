@@ -278,8 +278,7 @@ type point struct {
 func TestSendJson(t *testing.T) {
 	router := defaultTestRouter()
 	router.Path("/json").Post(func(ctx *gyr.Context) *gyr.Response {
-		var p point
-		err := ctx.ReadBody(&p)
+		p, err := gyr.ReadBody[point](ctx)
 		if err != nil {
 			return ctx.Response().Error("Failed reading JSON", http.StatusInternalServerError)
 		}
@@ -322,8 +321,7 @@ func TestSendJson(t *testing.T) {
 func TestReceiveJson(t *testing.T) {
 	router := defaultTestRouter()
 	router.Path("/json").Post(func(ctx *gyr.Context) *gyr.Response {
-		var p point
-		err := ctx.ReadBody(&p)
+		_, err := gyr.ReadBody[point](ctx)
 		if err != nil {
 			return ctx.Response().Error("Failed reading JSON", http.StatusInternalServerError)
 		}

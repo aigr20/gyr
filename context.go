@@ -54,7 +54,8 @@ func (ctx *Context) StringVariable(key string) string {
 	return ctx.Variable(key).(string)
 }
 
-func (ctx *Context) ReadBody(destination any) error {
+func ReadBody[T any](ctx *Context) (T, error) {
+	var target T
 	var decoder BodyDecoder
 	switch ctx.Request.Header.Get("Content-Type") {
 	case "application/json":
@@ -66,8 +67,9 @@ func (ctx *Context) ReadBody(destination any) error {
 		if ctx.FallbackDecoder != nil {
 			decoder = ctx.FallbackDecoder
 		} else {
-			return errors.New("can not determine Decoder to use from Content-Type header")
+			return target, errors.New("can not determine decoder to use from Content-Type header and no fallback set")
 		}
 	}
-	return decoder.Decode(destination)
+	err := decoder.Decode(&target)
+	return target, err
 }

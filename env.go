@@ -49,15 +49,3 @@ func shouldSkipLine(line string) bool {
 	}
 	return false
 }
-
-// Get the named matches from a regexp.
-func regexNamedMatches(r *regexp.Regexp, str string) map[string]string {
-	matchMap := make(map[string]string)
-	match := r.FindStringSubmatch(str)
-	for i, name := range r.SubexpNames() {
-		if i != 0 {
-			matchMap[name] = match[i]
-		}
-	}
-	return matchMap
-}

@@ -1,6 +1,11 @@
 # Gyr
 
-A package intended for my own personal use. Currently contains a request router and a database migrator.
+Sort of a standard library intended for my own personal use. Current feature set:
+
+* Request router
+* Database migrator
+* dotenv loading
+* UUIDv7 generation
 
 ## Installation
 
@@ -41,4 +46,3 @@ func main() {
     err := migrator.Migrate()
 }
 ```
-

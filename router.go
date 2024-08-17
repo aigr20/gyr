@@ -116,6 +116,7 @@ func (router *Router) StaticDir(directory string) {
 	})
 }
 
+// Add all html files in a directory as routes.
 func (router *Router) HtmlDir(dir string) {
 	filepath.WalkDir(dir, func(path string, file fs.DirEntry, err error) error {
 		if !strings.HasSuffix(path, ".html") {
@@ -129,14 +130,15 @@ func (router *Router) HtmlDir(dir string) {
 		cleaned = strings.TrimLeftFunc(cleaned, func(r rune) bool {
 			return r == '.'
 		})
-		router.HtmlFile(cleaned)
+		router.HtmlFile(cleaned, path)
 		router.logger.Info("Added html file", "file", path)
 		return nil
 	})
 }
 
-func (router *Router) HtmlFile(file string) {
-	router.Path(file).Get(htmlFileHandler(router, file))
+// Registers the specified path as an alias for the file.
+func (router *Router) HtmlFile(path string, file string) {
+	router.Path(path).Get(htmlFileHandler(router, file))
 }
 
 func (router *Router) FindRoute(path string) *Route {

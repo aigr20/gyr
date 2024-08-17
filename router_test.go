@@ -401,7 +401,7 @@ func TestStaticFiles(t *testing.T) {
 
 func TestHtmlDir(t *testing.T) {
 	router := defaultTestRouter()
-	router.AddHtmlDir("test_files/htmldir")
+	router.HtmlDir("test_files/htmldir")
 
 	t.Run("find html files", func(t *testing.T) {
 		route := router.FindRoute("/test_files/htmldir/text.html")

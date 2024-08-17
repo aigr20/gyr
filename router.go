@@ -116,7 +116,7 @@ func (router *Router) StaticDir(directory string) {
 	})
 }
 
-func (router *Router) AddHtmlDir(dir string) {
+func (router *Router) HtmlDir(dir string) {
 	filepath.WalkDir(dir, func(path string, file fs.DirEntry, err error) error {
 		if !strings.HasSuffix(path, ".html") {
 			return nil
@@ -126,7 +126,9 @@ func (router *Router) AddHtmlDir(dir string) {
 		}
 
 		cleaned := strings.ReplaceAll(path, "\\", "/")
-		cleaned = strings.TrimPrefix(cleaned, ".")
+		cleaned = strings.TrimLeftFunc(cleaned, func(r rune) bool {
+			return r == '.'
+		})
 		router.HtmlFile(cleaned)
 		router.logger.Info("Added html file", "file", path)
 		return nil

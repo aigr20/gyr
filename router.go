@@ -1,9 +1,14 @@
 package gyr
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -94,8 +99,67 @@ func (router *Router) Group(prefix string) *RouteGroup {
 	return group
 }
 
+func (router *Router) StaticDir(directory string) {
+	group := router.Group(directory)
+	filepath.WalkDir(directory, func(path string, file fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if file.IsDir() {
+			return nil
+		}
+
+		cleaned := strings.ReplaceAll(path, "\\", "/")
+		cleaned = strings.TrimPrefix(cleaned, directory)
+		group.Path(cleaned).Get(staticFileHandler(router, path))
+		return nil
+	})
+}
+
 func (router *Router) FindRoute(path string) *Route {
 	return searchRoute(router.routes, path)
+}
+
+func staticFileHandler(router *Router, fpath string) Handler {
+	return func(ctx *Context) *Response {
+		file, err := os.Open(fpath)
+		if errors.Is(err, os.ErrNotExist) {
+			return ctx.Response().Error(fmt.Sprintf("404 %s not found", fpath), http.StatusNotFound)
+		} else if err != nil {
+			router.logger.Error("failed reading static file", "err", err)
+			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+		}
+
+		content, err := io.ReadAll(file)
+		if err != nil {
+			router.logger.Error("failed reading static file", "err", err)
+			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+		}
+		return responseBasedOnFileExtension(ctx, fpath, string(content))
+	}
+}
+
+// Create a [Response]-object based on the extension of the file.
+func responseBasedOnFileExtension(ctx *Context, fpath string, content string) *Response {
+	response := ctx.Response()
+	lastPeriod := strings.LastIndex(fpath, ".")
+	if lastPeriod == -1 {
+		return response.Raw(content)
+	}
+
+	extension := fpath[lastPeriod:]
+	switch extension {
+	case ".html":
+		return response.Html(content)
+	case ".css":
+		return response.Raw(content).Header("Content-Type", "text/css")
+	case ".js":
+		return response.Raw(content).Header("Content-Type", "text/javascript")
+	case ".txt":
+		return response.Text(content)
+	default:
+		return response.Raw(content)
+	}
 }
 
 func extractVariablesIntoContext(route *Route, ctx *Context) {

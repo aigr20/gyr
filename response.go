@@ -30,6 +30,12 @@ func (r *Response) Text(text string) *Response {
 	return r
 }
 
+func (r *Response) Html(html string) *Response {
+	r.toWrite = append(r.toWrite, []byte(html)...)
+	r.w.Header().Set("Content-Type", "text/html")
+	return r
+}
+
 func (r *Response) Json(object any) *Response {
 	jsonBytes, err := json.Marshal(object)
 	if err != nil {
@@ -38,6 +44,12 @@ func (r *Response) Json(object any) *Response {
 	}
 	r.w.Header().Set("Content-Type", "application/json")
 	r.toWrite = append(r.toWrite, jsonBytes...)
+	return r
+}
+
+// Set the response content without setting a Content-Type header.
+func (r *Response) Raw(text string) *Response {
+	r.toWrite = append(r.toWrite, []byte(text)...)
 	return r
 }
 

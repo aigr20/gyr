@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"testing"
 
@@ -359,6 +360,40 @@ func TestResponseStatusCode(t *testing.T) {
 		received := response.Result().Header.Get("Content-Type")
 		if received != "application/json" {
 			t.Logf("Expected %s. Received %s\n", "application/json", received)
+			t.FailNow()
+		}
+	})
+}
+
+func TestStaticFiles(t *testing.T) {
+	router := defaultTestRouter()
+	router.StaticDir("staticdir")
+
+	t.Run("no nesting (text.html)", func(t *testing.T) {
+		request, _ := http.NewRequest(http.MethodGet, "staticdir/text.html", nil)
+		response := sendRequest(router, request)
+
+		received := response.Body.String()
+		expected, _ := os.ReadFile("staticdir/text.html")
+		if string(expected) != received {
+			t.Logf("Expected %s. Received %s\n", string(expected), received)
+			t.FailNow()
+		}
+		contentType := response.Header().Get("Content-Type")
+		if contentType != "text/html" {
+			t.Logf("Incorrect content-type header set: %s\n", contentType)
+			t.FailNow()
+		}
+	})
+
+	t.Run("nested 1 level (afile.txt)", func(t *testing.T) {
+		request, _ := http.NewRequest(http.MethodGet, "staticdir/nested/afile.txt", nil)
+		response := sendRequest(router, request)
+
+		recevied := response.Body.String()
+		expected, _ := os.ReadFile("staticdir/nested/afile.txt")
+		if string(expected) != recevied {
+			t.Logf("Expected %s. Recevied %s\n", string(expected), recevied)
 			t.FailNow()
 		}
 	})

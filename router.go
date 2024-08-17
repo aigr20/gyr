@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -24,6 +25,8 @@ type Router struct {
 	routes      []RouterMatchable
 	middlewares []Handler
 	logger      *slog.Logger
+	// Directories that will be ignored by HtmlDir() and StaticDir()
+	IgnoredDirectories []string
 }
 
 func DefaultRouter() *Router {
@@ -106,6 +109,9 @@ func (router *Router) StaticDir(directory string) {
 		if err != nil {
 			return err
 		}
+		if file.IsDir() && slices.Contains(router.IgnoredDirectories, file.Name()) {
+			return filepath.SkipDir
+		}
 		if file.IsDir() {
 			return nil
 		}
@@ -122,10 +128,13 @@ func (router *Router) StaticDir(directory string) {
 // Add all html files in a directory as routes.
 func (router *Router) HtmlDir(dir string) {
 	filepath.WalkDir(dir, func(path string, file fs.DirEntry, err error) error {
-		if !strings.HasSuffix(path, ".html") {
-			return nil
+		if file.IsDir() && slices.Contains(router.IgnoredDirectories, file.Name()) {
+			return filepath.SkipDir
 		}
 		if file.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".html") {
 			return nil
 		}
 

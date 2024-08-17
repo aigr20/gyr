@@ -366,10 +366,9 @@ func TestResponseStatusCode(t *testing.T) {
 }
 
 func TestStaticFiles(t *testing.T) {
-	router := defaultTestRouter()
-	router.StaticDir("test_files/staticdir")
-
 	t.Run("no nesting (text.html)", func(t *testing.T) {
+		router := defaultTestRouter()
+		router.StaticDir("test_files/staticdir")
 		request, _ := http.NewRequest(http.MethodGet, "/test_files/staticdir/text.html", nil)
 		response := sendRequest(router, request)
 
@@ -387,6 +386,8 @@ func TestStaticFiles(t *testing.T) {
 	})
 
 	t.Run("nested 1 level (afile.txt)", func(t *testing.T) {
+		router := defaultTestRouter()
+		router.StaticDir("test_files/staticdir")
 		request, _ := http.NewRequest(http.MethodGet, "/test_files/staticdir/nested/afile.txt", nil)
 		response := sendRequest(router, request)
 
@@ -397,13 +398,24 @@ func TestStaticFiles(t *testing.T) {
 			t.FailNow()
 		}
 	})
+
+	t.Run("filters directories", func(t *testing.T) {
+		router := defaultTestRouter()
+		router.IgnoredDirectories = []string{"nested"}
+		router.StaticDir("test_files/staticdir")
+
+		route := router.FindRoute("/test_files/staticdir/nested/afile.txt")
+		if route != nil {
+			t.Log("Found route for afile.txt")
+			t.FailNow()
+		}
+	})
 }
 
 func TestHtmlDir(t *testing.T) {
-	router := defaultTestRouter()
-	router.HtmlDir("test_files/htmldir")
-
 	t.Run("find html files", func(t *testing.T) {
+		router := defaultTestRouter()
+		router.HtmlDir("test_files/htmldir")
 		route := router.FindRoute("/test_files/htmldir/text.html")
 		if route == nil {
 			t.Log("Failed to find route for text.html")
@@ -417,9 +429,22 @@ func TestHtmlDir(t *testing.T) {
 	})
 
 	t.Run("does not add non-html files", func(t *testing.T) {
+		router := defaultTestRouter()
+		router.HtmlDir("test_files/htmldir")
 		route := router.FindRoute("/test_files/htmldir/not_html.txt")
 		if route != nil {
 			t.Log("Found route for not_html.txt")
+			t.FailNow()
+		}
+	})
+
+	t.Run("Can filter HtmlDir", func(t *testing.T) {
+		router := defaultTestRouter()
+		router.IgnoredDirectories = []string{"skipped"}
+		router.HtmlDir("test_files/htmldir")
+		route := router.FindRoute("/test_files/htmldir/skipped/skip.html")
+		if route != nil {
+			t.Log("Found route for skip.html")
 			t.FailNow()
 		}
 	})

@@ -367,14 +367,14 @@ func TestResponseStatusCode(t *testing.T) {
 
 func TestStaticFiles(t *testing.T) {
 	router := defaultTestRouter()
-	router.StaticDir("staticdir")
+	router.StaticDir("test_files/staticdir")
 
 	t.Run("no nesting (text.html)", func(t *testing.T) {
-		request, _ := http.NewRequest(http.MethodGet, "staticdir/text.html", nil)
+		request, _ := http.NewRequest(http.MethodGet, "test_files/staticdir/text.html", nil)
 		response := sendRequest(router, request)
 
 		received := response.Body.String()
-		expected, _ := os.ReadFile("staticdir/text.html")
+		expected, _ := os.ReadFile("test_files/staticdir/text.html")
 		if string(expected) != received {
 			t.Logf("Expected %s. Received %s\n", string(expected), received)
 			t.FailNow()
@@ -387,13 +387,39 @@ func TestStaticFiles(t *testing.T) {
 	})
 
 	t.Run("nested 1 level (afile.txt)", func(t *testing.T) {
-		request, _ := http.NewRequest(http.MethodGet, "staticdir/nested/afile.txt", nil)
+		request, _ := http.NewRequest(http.MethodGet, "test_files/staticdir/nested/afile.txt", nil)
 		response := sendRequest(router, request)
 
 		recevied := response.Body.String()
-		expected, _ := os.ReadFile("staticdir/nested/afile.txt")
+		expected, _ := os.ReadFile("test_files/staticdir/nested/afile.txt")
 		if string(expected) != recevied {
 			t.Logf("Expected %s. Recevied %s\n", string(expected), recevied)
+			t.FailNow()
+		}
+	})
+}
+
+func TestHtmlDir(t *testing.T) {
+	router := defaultTestRouter()
+	router.AddHtmlDir("test_files/htmldir")
+
+	t.Run("find html files", func(t *testing.T) {
+		route := router.FindRoute("/test_files/htmldir/text.html")
+		if route == nil {
+			t.Log("Failed to find route for text.html")
+			t.FailNow()
+		}
+		route = router.FindRoute("/test_files/htmldir/text2.html")
+		if route == nil {
+			t.Log("Failed to find route for text2.html")
+			t.FailNow()
+		}
+	})
+
+	t.Run("does not add non-html files", func(t *testing.T) {
+		route := router.FindRoute("/test_files/htmldir/not_html.txt")
+		if route != nil {
+			t.Log("Found route for not_html.txt")
 			t.FailNow()
 		}
 	})

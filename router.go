@@ -116,8 +116,49 @@ func (router *Router) StaticDir(directory string) {
 	})
 }
 
+func (router *Router) AddHtmlDir(dir string) {
+	filepath.WalkDir(dir, func(path string, file fs.DirEntry, err error) error {
+		if !strings.HasSuffix(path, ".html") {
+			return nil
+		}
+		if file.IsDir() {
+			return nil
+		}
+
+		cleaned := strings.ReplaceAll(path, "\\", "/")
+		cleaned = strings.TrimPrefix(cleaned, ".")
+		router.HtmlFile(cleaned)
+		router.logger.Info("Added html file", "file", path)
+		return nil
+	})
+}
+
+func (router *Router) HtmlFile(file string) {
+	router.Path(file).Get(htmlFileHandler(router, file))
+}
+
 func (router *Router) FindRoute(path string) *Route {
 	return searchRoute(router.routes, path)
+}
+
+func htmlFileHandler(router *Router, fpath string) Handler {
+	return func(ctx *Context) *Response {
+		file, err := os.Open(fpath)
+		if errors.Is(err, os.ErrNotExist) {
+			return ctx.Response().Error("404 - Not Found", http.StatusNotFound)
+		} else if err != nil {
+			router.logger.Error("failed reading html file")
+			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+		}
+		defer file.Close()
+
+		content, err := io.ReadAll(file)
+		if err != nil {
+			router.logger.Error("failed reading html file", "err", err, "path", fpath)
+			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+		}
+		return ctx.Response().Html(string(content))
+	}
 }
 
 func staticFileHandler(router *Router, fpath string) Handler {
@@ -129,6 +170,7 @@ func staticFileHandler(router *Router, fpath string) Handler {
 			router.logger.Error("failed reading static file", "err", err)
 			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
 		}
+		defer file.Close()
 
 		content, err := io.ReadAll(file)
 		if err != nil {

@@ -370,7 +370,7 @@ func TestStaticFiles(t *testing.T) {
 	router.StaticDir("test_files/staticdir")
 
 	t.Run("no nesting (text.html)", func(t *testing.T) {
-		request, _ := http.NewRequest(http.MethodGet, "test_files/staticdir/text.html", nil)
+		request, _ := http.NewRequest(http.MethodGet, "/test_files/staticdir/text.html", nil)
 		response := sendRequest(router, request)
 
 		received := response.Body.String()
@@ -387,7 +387,7 @@ func TestStaticFiles(t *testing.T) {
 	})
 
 	t.Run("nested 1 level (afile.txt)", func(t *testing.T) {
-		request, _ := http.NewRequest(http.MethodGet, "test_files/staticdir/nested/afile.txt", nil)
+		request, _ := http.NewRequest(http.MethodGet, "/test_files/staticdir/nested/afile.txt", nil)
 		response := sendRequest(router, request)
 
 		recevied := response.Body.String()

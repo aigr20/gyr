@@ -100,7 +100,8 @@ func (router *Router) Group(prefix string) *RouteGroup {
 }
 
 func (router *Router) StaticDir(directory string) {
-	group := router.Group(directory)
+	cleanDirectory := strings.TrimLeft(directory, ".")
+	group := router.Group(cleanDirectory)
 	filepath.WalkDir(directory, func(path string, file fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -111,7 +112,9 @@ func (router *Router) StaticDir(directory string) {
 
 		cleaned := strings.ReplaceAll(path, "\\", "/")
 		cleaned = strings.TrimPrefix(cleaned, directory)
+		cleaned = strings.TrimPrefix(cleaned, "/")
 		group.Path(cleaned).Get(staticFileHandler(router, path))
+		router.logger.Info("Added static file", "file", path)
 		return nil
 	})
 }
@@ -127,9 +130,7 @@ func (router *Router) HtmlDir(dir string) {
 		}
 
 		cleaned := strings.ReplaceAll(path, "\\", "/")
-		cleaned = strings.TrimLeftFunc(cleaned, func(r rune) bool {
-			return r == '.'
-		})
+		cleaned = strings.TrimLeft(cleaned, ".")
 		router.HtmlFile(cleaned, path)
 		router.logger.Info("Added html file", "file", path)
 		return nil
@@ -321,6 +322,9 @@ type RouteGroup struct {
 }
 
 func createGroup(prefix string) *RouteGroup {
+	if prefix[0] != '/' {
+		prefix = "/" + prefix
+	}
 	return &RouteGroup{
 		Prefix:      prefix,
 		routes:      make([]RouterMatchable, 0),

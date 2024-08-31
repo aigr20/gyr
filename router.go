@@ -56,7 +56,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}()
 
 	if route == nil {
-		response = context.Response().Error("404 - Not Found", http.StatusNotFound)
+		response = context.Response().Status(http.StatusNotFound).Text("404 - Not Found")
 		return
 	}
 
@@ -83,7 +83,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	response = context.Response().Error("405 - Method Not Allowed", http.StatusMethodNotAllowed)
+	response = context.Response().Status(http.StatusMethodNotAllowed).Text("405 - Method Not Allowed")
 }
 
 func (router *Router) Middleware(middleware ...Handler) {
@@ -159,17 +159,17 @@ func htmlFileHandler(router *Router, fpath string) Handler {
 	return func(ctx *Context) *Response {
 		file, err := os.Open(fpath)
 		if errors.Is(err, os.ErrNotExist) {
-			return ctx.Response().Error("404 - Not Found", http.StatusNotFound)
+			return ctx.Response().Status(http.StatusNotFound).Text("404 - Not Found")
 		} else if err != nil {
 			router.logger.Error("failed reading html file")
-			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+			return ctx.Response().InternalError().Text("Internal Server Error")
 		}
 		defer file.Close()
 
 		content, err := io.ReadAll(file)
 		if err != nil {
 			router.logger.Error("failed reading html file", "err", err, "path", fpath)
-			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+			return ctx.Response().InternalError().Text("Internal Server Error")
 		}
 		return ctx.Response().Html(string(content))
 	}
@@ -179,17 +179,17 @@ func staticFileHandler(router *Router, fpath string) Handler {
 	return func(ctx *Context) *Response {
 		file, err := os.Open(fpath)
 		if errors.Is(err, os.ErrNotExist) {
-			return ctx.Response().Error(fmt.Sprintf("404 %s not found", fpath), http.StatusNotFound)
+			return ctx.Response().Status(http.StatusNotFound).Text(fmt.Sprintf("404 %s not found", fpath))
 		} else if err != nil {
 			router.logger.Error("failed reading static file", "err", err)
-			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+			return ctx.Response().InternalError().Text("Internal Server Error")
 		}
 		defer file.Close()
 
 		content, err := io.ReadAll(file)
 		if err != nil {
 			router.logger.Error("failed reading static file", "err", err)
-			return ctx.Response().Error("Internal Server Error", http.StatusInternalServerError)
+			return ctx.Response().InternalError().Text("Internal Server Error")
 		}
 		return responseBasedOnFileExtension(ctx, fpath, string(content))
 	}

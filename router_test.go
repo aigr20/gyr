@@ -281,7 +281,7 @@ func TestSendJson(t *testing.T) {
 	router.Path("/json").Post(func(ctx *gyr.Context) *gyr.Response {
 		p, err := gyr.ReadBody[point](ctx)
 		if err != nil {
-			return ctx.Response().Error("Failed reading JSON", http.StatusInternalServerError)
+			return ctx.Response().InternalError().Text("Failed reading JSON")
 		}
 
 		p.X += 1
@@ -324,7 +324,7 @@ func TestReceiveJson(t *testing.T) {
 	router.Path("/json").Post(func(ctx *gyr.Context) *gyr.Response {
 		_, err := gyr.ReadBody[point](ctx)
 		if err != nil {
-			return ctx.Response().Error("Failed reading JSON", http.StatusInternalServerError)
+			return ctx.Response().InternalError().Text("Failed reading JSON")
 		}
 
 		return ctx.Response().Text("Success!")

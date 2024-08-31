@@ -39,7 +39,7 @@ func (r *Response) Html(html string) *Response {
 func (r *Response) Json(object any) *Response {
 	jsonBytes, err := json.Marshal(object)
 	if err != nil {
-		r.Error("Internal Server Error", http.StatusInternalServerError)
+		r.InternalError().Text("Internal Server Error")
 		return r
 	}
 	r.w.Header().Set("Content-Type", "application/json")
@@ -53,8 +53,8 @@ func (r *Response) Raw(text string) *Response {
 	return r
 }
 
-func (r *Response) Error(err string, statusCode int) *Response {
-	r.Status(statusCode).Text(err)
+func (r *Response) InternalError() *Response {
+	r.Status(http.StatusInternalServerError)
 	return r
 }
 

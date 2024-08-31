@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"net/http"
+	"strings"
 )
 
 type Context struct {
@@ -57,7 +58,8 @@ func (ctx *Context) StringVariable(key string) string {
 func ReadBody[T any](ctx *Context) (T, error) {
 	var target T
 	var decoder BodyDecoder
-	switch ctx.Request.Header.Get("Content-Type") {
+	contentType := parseContentType(ctx.Request.Header.Get("Content-Type"))
+	switch contentType.mimetype {
 	case "application/json":
 		decoder = json.NewDecoder(ctx.Request.Body)
 	case "application/xml":
@@ -72,4 +74,55 @@ func ReadBody[T any](ctx *Context) (T, error) {
 	}
 	err := decoder.Decode(&target)
 	return target, err
+}
+
+type contentType struct {
+	mimetype string
+	charset  string
+	boundary string
+}
+
+func parseContentType(header string) contentType {
+	var result contentType
+	reader := strings.NewReader(header)
+	readMimeType(reader, &result)
+	readDirectives(reader, &result)
+
+	return result
+}
+
+func readMimeType(reader *strings.Reader, output *contentType) {
+	ch, _, err := reader.ReadRune()
+	sb := strings.Builder{}
+	for ; ch != ';' && err == nil; ch, _, err = reader.ReadRune() {
+		sb.WriteRune(ch)
+	}
+	output.mimetype = sb.String()
+}
+
+func readDirectives(reader *strings.Reader, output *contentType) {
+	ch, _, err := reader.ReadRune()
+	for err == nil {
+		for (ch == ';' || ch == ' ') && err == nil {
+			ch, _, err = reader.ReadRune()
+		}
+
+		sb := strings.Builder{}
+		for ; ch != '=' && err == nil; ch, _, err = reader.ReadRune() {
+			sb.WriteRune(ch)
+		}
+		key := sb.String()
+		sb.Reset()
+		ch, _, err = reader.ReadRune()
+		for ; ch != ';' && err == nil; ch, _, err = reader.ReadRune() {
+			sb.WriteRune(ch)
+		}
+
+		switch key {
+		case "charset":
+			output.charset = sb.String()
+		case "boundary":
+			output.boundary = sb.String()
+		}
+	}
 }

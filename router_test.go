@@ -330,14 +330,37 @@ func TestReceiveJson(t *testing.T) {
 		return ctx.Response().Text("Success!")
 	})
 
-	payload := createPayload(point{X: 1, Y: 3})
-	request, _ := http.NewRequest(http.MethodPost, "/json", payload)
-	request.Header.Set("Content-Type", "application/json")
-	response := sendRequest(router, request)
+	t.Run("regular content-type", func(t *testing.T) {
+		payload := createPayload(point{X: 1, Y: 3})
+		request, _ := http.NewRequest(http.MethodPost, "/json", payload)
+		request.Header.Set("Content-Type", "application/json")
+		response := sendRequest(router, request)
 
-	if response.Result().StatusCode != http.StatusOK {
-		t.FailNow()
-	}
+		if response.Result().StatusCode != http.StatusOK {
+			t.FailNow()
+		}
+	})
+	t.Run("content-type 1 directive", func(t *testing.T) {
+		payload := createPayload(point{X: 1, Y: 3})
+		request, _ := http.NewRequest(http.MethodPost, "/json", payload)
+		request.Header.Set("Content-Type", "application/json; charset=utf-8")
+		response := sendRequest(router, request)
+
+		if response.Result().StatusCode != http.StatusOK {
+			t.FailNow()
+		}
+	})
+
+	t.Run("content-type 2 directives", func(t *testing.T) {
+		payload := createPayload(point{X: 1, Y: 3})
+		request, _ := http.NewRequest(http.MethodPost, "/json", payload)
+		request.Header.Set("Content-Type", "application/json; charset=utf-8; boundary=----")
+		response := sendRequest(router, request)
+
+		if response.Result().StatusCode != http.StatusOK {
+			t.FailNow()
+		}
+	})
 }
 
 func TestResponseStatusCode(t *testing.T) {

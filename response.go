@@ -58,6 +58,10 @@ func (r *Response) InternalError() *Response {
 	return r
 }
 
+func (r *Response) NoContent() *Response {
+	return r.Status(http.StatusNoContent)
+}
+
 func (r *Response) Header(name string, value string) *Response {
 	r.w.Header().Set(name, value)
 	return r
